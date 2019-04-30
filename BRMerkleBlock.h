@@ -39,7 +39,6 @@ extern "C" {
 
 typedef struct {
     UInt256 blockHash;
-    UInt256 powHash;
     uint32_t version;
     UInt256 prevBlock;
     UInt256 merkleRoot;
@@ -59,9 +58,6 @@ typedef struct {
 
 // returns a newly allocated merkle block struct that must be freed by calling BRMerkleBlockFree()
 BRMerkleBlock *BRMerkleBlockNew(void);
-
-// returns a deep copy of block and that must be freed by calling BRMerkleBlockFree()
-BRMerkleBlock *BRMerkleBlockCopy(const BRMerkleBlock *block);
 
 // buf must contain either a serialized merkleblock or header
 // returns a merkle block struct that must be freed by calling BRMerkleBlockFree()
