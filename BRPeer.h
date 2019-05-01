@@ -63,7 +63,7 @@ extern "C" {
 #define SERVICES_NODE_BCASH   0x20 // https://github.com/Bitcoin-UAHF/spec/blob/master/uahf-technical-spec.md
     
 #define BR_VERSION "175"
-#define USER_AGENT "/eccoin-mobile-android:" BR_VERSION "/"
+#define USER_AGENT "/Eccoin-MobileBR:" BR_VERSION "/"
 
 // explanation of message types at: https://en.bitcoin.it/wiki/Protocol_specification
 #define MSG_VERSION     "version"

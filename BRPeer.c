@@ -44,16 +44,16 @@
 #include <arpa/inet.h>
 
 #if BITCOIN_TESTNET
-#define MAGIC_NUMBER 0xbbaaffee
+#define MAGIC_NUMBER 0xeeffaabb
 #else
-#define MAGIC_NUMBER 0xfadbf1ce
+#define MAGIC_NUMBER 0xfadbf1ce // little endian order
 #endif
 #define HEADER_LENGTH      24
 #define MAX_MSG_LENGTH     0x02000000
 #define MAX_GETDATA_HASHES 50000
 #define ENABLED_SERVICES   0ULL  // we don't provide full blocks to remote nodes
-#define PROTOCOL_VERSION   60038 //70015
-#define MIN_PROTO_VERSION  60037 //70002 // peers earlier than this protocol version not supported (need v0.9 txFee relay rules)
+#define PROTOCOL_VERSION   60039 //70015
+#define MIN_PROTO_VERSION  60039 //70002 // peers earlier than this protocol version not supported (need v0.9 txFee relay rules)
 #define LOCAL_HOST         ((UInt128) { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0xff, 0xff, 0x7f, 0x00, 0x00, 0x01 })
 #define CONNECT_TIMEOUT    3.0
 #define MESSAGE_TIMEOUT    10.0
@@ -182,8 +182,8 @@ static int _BRPeerAcceptVersionMessage(BRPeer *peer, const uint8_t *msg, size_t 
     uint16_t recvPort, fromPort;
     int r = 1;
     
-    if (85 > msgLen) {
-        peer_log(peer, "malformed version message, length is %zu, should be >= 85", msgLen);
+    if (93 > msgLen) {
+        peer_log(peer, "malformed version message, length is %zu, should be >= 93", msgLen);
         r = 0;
     }
     else {
@@ -195,12 +195,14 @@ static int _BRPeerAcceptVersionMessage(BRPeer *peer, const uint8_t *msg, size_t 
         off += sizeof(uint64_t);
         recvServices = UInt64GetLE(&msg[off]);
         off += sizeof(uint64_t);
+        off += sizeof(uint32_t); // skip scopeId
         recvAddr = UInt128Get(&msg[off]);
         off += sizeof(UInt128);
         recvPort = UInt16GetBE(&msg[off]);
         off += sizeof(uint16_t);
         fromServices = UInt64GetLE(&msg[off]);
         off += sizeof(uint64_t);
+        off += sizeof(uint32_t); // skip scopeId
         fromAddr = UInt128Get(&msg[off]);
         off += sizeof(UInt128);
         fromPort = UInt16GetBE(&msg[off]);
@@ -1272,11 +1274,10 @@ void BRPeerSendMessage(BRPeer *peer, const uint8_t *msg, size_t msgLen, const ch
         memcpy(&buf[off], hash, sizeof(uint32_t));
         off += sizeof(uint32_t);
         memcpy(&buf[off], msg, msgLen);
-        peer_log(peer, "sending %s", type);
+        peer_log(peer, "sending msg type \"%s\"", type);
         msgLen = 0;
         socket = ctx->socket;
         if (socket < 0) error = ENOTCONN;
-        
         while (socket >= 0 && ! error && msgLen < sizeof(buf)) {
             n = send(socket, &buf[msgLen], sizeof(buf) - msgLen, MSG_NOSIGNAL);
             if (n >= 0) msgLen += n;
@@ -1285,7 +1286,7 @@ void BRPeerSendMessage(BRPeer *peer, const uint8_t *msg, size_t msgLen, const ch
             if (! error && tv.tv_sec + (double)tv.tv_usec/1000000 >= ctx->disconnectTime) error = ETIMEDOUT;
             socket = ctx->socket;
         }
-        
+
         if (error) {
             peer_log(peer, "%s", strerror(error));
             BRPeerDisconnect(peer);
@@ -1297,7 +1298,7 @@ void BRPeerSendVersionMessage(BRPeer *peer)
 {
     BRPeerContext *ctx = (BRPeerContext *)peer;
     size_t off = 0, userAgentLen = strlen(USER_AGENT);
-    uint8_t msg[80 + BRVarIntSize(userAgentLen) + userAgentLen + 5];
+    uint8_t msg[80 + BRVarIntSize(userAgentLen) + userAgentLen + 5 + 8 /* scopeIds */];
     
     UInt32SetLE(&msg[off], PROTOCOL_VERSION); // version
     off += sizeof(uint32_t);
@@ -1307,12 +1308,16 @@ void BRPeerSendVersionMessage(BRPeer *peer)
     off += sizeof(uint64_t);
     UInt64SetLE(&msg[off], peer->services); // services of remote peer
     off += sizeof(uint64_t);
+    UInt32SetLE(&msg[off], 0); // scopeId for scoped/link-local ipv6 addresses
+    off += sizeof(uint32_t);
     UInt128Set(&msg[off], peer->address); // IPv6 address of remote peer
     off += sizeof(UInt128);
     UInt16SetBE(&msg[off], peer->port); // port of remote peer
     off += sizeof(uint16_t);
     UInt64SetLE(&msg[off], ENABLED_SERVICES); // services
     off += sizeof(uint64_t);
+    UInt32SetLE(&msg[off], 0); // scopeId for scoped/link-local ipv6 addresses
+    off += sizeof(uint32_t);
     UInt128Set(&msg[off], LOCAL_HOST); // IPv4 mapped IPv6 header
     off += sizeof(UInt128);
     UInt16SetBE(&msg[off], STANDARD_PORT);
@@ -1326,6 +1331,7 @@ void BRPeerSendVersionMessage(BRPeer *peer)
     UInt32SetLE(&msg[off], 0); // last block received
     off += sizeof(uint32_t);
     msg[off++] = 0; // relay transactions (0 for SPV bloom filter mode)
+
     BRPeerSendMessage(peer, msg, sizeof(msg), MSG_VERSION);
 }
 
