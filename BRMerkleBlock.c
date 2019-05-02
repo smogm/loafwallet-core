@@ -123,8 +123,7 @@ BRMerkleBlock *BRMerkleBlockParse(const uint8_t *buf, size_t bufLen)
         }
         
         //BRSHA256_2(&block->blockHash, buf, 80);
-        BRScrypt_2(&block->blockHash, buf, 80);
-        //BRScrypt(&block->powHash, sizeof(block->powHash), buf, 80, buf, 80, 1024, 1, 1);
+        BRScrypt_BlockHash(&block->blockHash, buf, 80);
     }
     
     return block;
@@ -242,7 +241,7 @@ static UInt256 _BRMerkleBlockRootR(const BRMerkleBlock *block, size_t *hashIdx, 
 
             if (! UInt256IsZero(hashes[0]) && ! UInt256Eq(hashes[0], hashes[1])) {
                 if (UInt256IsZero(hashes[1])) hashes[1] = hashes[0]; // if right branch is missing, dup left branch
-                BRSHA256_2(&md, hashes, sizeof(hashes));
+                BRSHA256(&md, hashes, sizeof(hashes)); // single sha256 in ECC?
             }
             else *hashIdx = SIZE_MAX; // defend against (CVE-2012-2459)
         }
@@ -258,7 +257,7 @@ static UInt256 _BRMerkleBlockRootR(const BRMerkleBlock *block, size_t *hashIdx, 
 int BRMerkleBlockIsValid(const BRMerkleBlock *block, uint32_t currentTime)
 {
     assert(block != NULL);
-    
+
     // target is in "compact" format, where the most significant byte is the size of resulting value in bytes, the next
     // bit is the sign, and the remaining 23bits is the value after having been right shifted by (size - 3)*8 bits
     static const uint32_t maxsize = MAX_PROOF_OF_WORK >> 24, maxtarget = MAX_PROOF_OF_WORK & 0x00ffffff;
@@ -269,10 +268,10 @@ int BRMerkleBlockIsValid(const BRMerkleBlock *block, uint32_t currentTime)
     
     // check if merkle root is correct
     if (block->totalTx > 0 && ! UInt256Eq(merkleRoot, block->merkleRoot)) r = 0;
-    
+
     // check if timestamp is too far in future
     if (block->timestamp > currentTime + BLOCK_MAX_TIME_DRIFT) r = 0;
-    
+
     // check if proof-of-work target is out of range // WE DON'T HAVE POW
     /*if (target == 0 || target & 0x00800000 || size > maxsize || (size == maxsize && target > maxtarget)) r = 0;
     
@@ -283,7 +282,7 @@ int BRMerkleBlockIsValid(const BRMerkleBlock *block, uint32_t currentTime)
         if (block->powHash.u8[i] < t.u8[i]) break;
         if (block->powHash.u8[i] > t.u8[i]) r = 0;
     }*/
-    
+
     return r;
 }
 

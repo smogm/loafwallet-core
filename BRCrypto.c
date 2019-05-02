@@ -1000,16 +1000,12 @@ void BRScrypt(void *dk, size_t dkLen, const void *pw, size_t pwLen, const void *
     free(v);
 }
 
-
-// double-scrypt = scrypt(scrypt(x))
-void BRScrypt_2(void *md32, const void *data, size_t len)
+void BRScrypt_BlockHash(void *md32, const void *data, size_t len)
 {
     const uint8_t MESSAGE_DIGEST_SIZE = 32;
-    uint8_t t[MESSAGE_DIGEST_SIZE];
 
     assert(md32 != NULL);
     assert(data != NULL || len == 0);
 
-    BRScrypt(&t, MESSAGE_DIGEST_SIZE, &data, len, data, len, 1024, 1, 1);
-    BRScrypt(md32, MESSAGE_DIGEST_SIZE, &t, MESSAGE_DIGEST_SIZE, t, MESSAGE_DIGEST_SIZE, 1024, 1, 1);
+    BRScrypt(md32, MESSAGE_DIGEST_SIZE, data, len, data, len, 1024, 1, 1);
 }
